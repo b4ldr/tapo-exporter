@@ -36,10 +36,13 @@ def main() -> None:
     config = yaml.load(args.config_file.read_text())
     plugs = {}
     for plug in config['plugs']:
-        plug = PyP110.P110(plug, config['email'], config['password'])
-        plug.handshake()
-        plug.login()
-        plugs[plug.getDeviceName()] = plug
+        try:
+            plug = pyp110.p110(plug, config['email'], config['password'])
+            plug.handshake()
+            plug.login()
+            plugs[plug.getDeviceName()] = plug
+        except Exception as error:
+            logging.debug('failed to connet to %s: %s', plug, error
     while True:
         metrics = MetricsRender(plugs=plugs)
         metrics.start()
