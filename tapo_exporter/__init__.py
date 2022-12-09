@@ -42,7 +42,7 @@ def main() -> None:
             plug.login()
             plugs[plug.getDeviceName()] = plug
         except Exception as error:
-            logging.debug('failed to connet to %s: %s', plug, error)
+            logging.error('failed to connet to %s: %s', plug, error)
     while True:
         metrics = MetricsRender(plugs=plugs)
         metrics.start()
