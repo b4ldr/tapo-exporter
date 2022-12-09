@@ -1,0 +1,33 @@
+[build-system]
+requires = ['setuptools>=42']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = "tapo_exporter"
+version = "0.0.1"
+requires-python = ">=3.9"
+authors = [
+    {name = "John Bond", email = "pypi@johnbond.org"}
+]
+description = "An exporter for tapo plugs energy usage"
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache 2.0",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+  "requests",
+  "prometheus_client",
+  "PyP100",
+  "PyYAML"
+]
+
+[project.urls]
+homepage = "https://github.com/b4ldr/tapo_export"
+documentation = "https://github.com/b4ldr/tapo_export"
+repository = "https://github.com/b4ldr/tapo_export"
+
+[project.scripts]
+tapo-exporter = "tapo_exporter:main"

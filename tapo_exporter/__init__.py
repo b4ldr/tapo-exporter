@@ -32,8 +32,10 @@ def get_log_level(args_level):
 def main() -> None:
     args = get_args()
     logging.basicConfig(level=get_log_level(args.verbose))
-    start_http_server(8000)
     config = yaml.load(args.config_file.read_text())
+    port = config.get('port', 8000)
+    addr = config.get('listen', '')
+    start_http_server(port, addr)
     plugs = {}
     for plug in config['plugs']:
         try:
