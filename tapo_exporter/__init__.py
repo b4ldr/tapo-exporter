@@ -37,7 +37,7 @@ def main() -> None:
     plugs = {}
     for plug in config['plugs']:
         try:
-            plug = PyP110.p110(plug, config['email'], config['password'])
+            plug = PyP110.P110(plug, config['email'], config['password'])
             plug.handshake()
             plug.login()
             plugs[plug.getDeviceName()] = plug
