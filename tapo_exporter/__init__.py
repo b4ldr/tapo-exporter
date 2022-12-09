@@ -37,12 +37,12 @@ def main() -> None:
     plugs = {}
     for plug in config['plugs']:
         try:
-            plug = pyp110.p110(plug, config['email'], config['password'])
+            plug = PyP110.p110(plug, config['email'], config['password'])
             plug.handshake()
             plug.login()
             plugs[plug.getDeviceName()] = plug
         except Exception as error:
-            logging.debug('failed to connet to %s: %s', plug, error
+            logging.debug('failed to connet to %s: %s', plug, error)
     while True:
         metrics = MetricsRender(plugs=plugs)
         metrics.start()
