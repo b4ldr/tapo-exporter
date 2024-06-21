@@ -1,19 +1,17 @@
 import asyncio
 import logging
-import time
 
 from argparse import ArgumentParser
 from pathlib import Path
 
 import yaml
 
-from prometheus_client import Gauge, start_http_server
+from aioprometheus import Gauge
+from aioprometheus.service import Service
 from kasa import Discover, Credentials
 
 
-PLUG_GAUGE = Gauge(
-    'tapo_plug_power', 'The power the plug', labelnames=['device_name']
-)
+logger = logging.getLogger(__name__)
 
 
 def get_args():
@@ -34,33 +32,52 @@ def get_log_level(args_level):
     }.get(args_level, logging.DEBUG)
 
 
-async def get_metricts(plug) -> None:
-    await plug.update()
-    power = plug.internal_state['energy']['current_power']
-    PLUG_GAUGE.labels(device_name=device_name).set(power)
-
-
 async def main() -> None:
+    await svr.start(port=8000)
     args = get_args()
     logging.basicConfig(level=get_log_level(args.verbose))
+    plug_gauge = Gauge('tapo_plug_power', 'The power the plug')
+
     config = yaml.load(args.config_file.read_text())
-    port = config.get('port', 8000)
-    addr = config.get('listen', '')
-    start_http_server(port, addr)
-    plugs = {}
+    plugs = []
     credentials = Credentials(username=config['email'], password=config['password'])
     for plug in config['plugs']:
         try:
-            plug = await Discover.discover_single(plug, credentials)
+            plug = await Discover.discover_single(plug, credentials=credentials)
             await plug.update()
-            plugs[plug.alias] = plug
+            plugs.append(plug)
         except Exception as error:
             logging.error('failed to connet to %s: %s', plug, error)
-    while True:
-        for device_name, plug in plugs.items():
-            await get_metricts(plug)
-        time.sleep(15)
+    try:
+        while True:
+            if len(plugs) == 0:
+                logging.error("No more devices")
+
+            for plug in plugs:
+                await plug.update()
+                plug_gauge.set(
+                    {'device_name': plug.alias},
+                    plug.internal_state['energy']['current_power'],
+                )
+
+            await asyncio.sleep(15)
+    except Exception as Error:
+        raise
+    finally:
+        for plug in plugs:
+            plug.disconnect()
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+
+    svr = Service()
+
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.run_until_complete(svr.stop())
+    loop.stop()
+    loop.close()
