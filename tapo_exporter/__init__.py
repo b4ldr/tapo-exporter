@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 
@@ -6,10 +7,13 @@ from pathlib import Path
 
 import yaml
 
-from prometheus_client import start_http_server
-from PyP100 import PyP110
+from prometheus_client import Gauge, start_http_server
+from kasa import Discover, Credentials
 
-from tapo_exporter.metrics import MetricsRender
+
+PLUG_GAUGE = Gauge(
+    'tapo_plug_power', 'The power the plug', labelnames=['device_name']
+)
 
 
 def get_args():
@@ -26,10 +30,17 @@ def get_log_level(args_level):
         None: logging.ERROR,
         1: logging.WARN,
         2: logging.INFO,
-        3: logging.DEBUG}.get(args_level, logging.DEBUG)
+        3: logging.DEBUG,
+    }.get(args_level, logging.DEBUG)
 
 
-def main() -> None:
+async def get_metricts(plug) -> None:
+    await plug.update()
+    power = plug.internal_state['energy']['current_power']
+    PLUG_GAUGE.labels(device_name=device_name).set(power)
+
+
+async def main() -> None:
     args = get_args()
     logging.basicConfig(level=get_log_level(args.verbose))
     config = yaml.load(args.config_file.read_text())
@@ -37,20 +48,19 @@ def main() -> None:
     addr = config.get('listen', '')
     start_http_server(port, addr)
     plugs = {}
+    credentials = Credentials(username=config['email'], password=config['password'])
     for plug in config['plugs']:
         try:
-            plug = PyP110.P110(plug, config['email'], config['password'])
-            plug.handshake()
-            plug.login()
-            plugs[plug.getDeviceName()] = plug
+            plug = await Discover.discover_single(plug, credentials)
+            await plug.update()
+            plugs[plug.alias] = plug
         except Exception as error:
             logging.error('failed to connet to %s: %s', plug, error)
     while True:
-        metrics = MetricsRender(plugs=plugs)
-        metrics.start()
+        for device_name, plug in plugs.items():
+            await get_metricts(plug)
         time.sleep(15)
-        metrics.join()
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
